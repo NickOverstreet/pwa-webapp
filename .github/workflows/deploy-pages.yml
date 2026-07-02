@@ -51,3 +51,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Pages deployment processing has been slow (2026-07: successful deploys
+          # crept from ~20s to ~8m, then started aborting at the action's default
+          # 10-minute timeout while still "deployment_queued"). Give the queue
+          # 30 minutes before giving up.
+          timeout: 1800000
