@@ -719,9 +719,10 @@ body.noanim .enemy-btn.zapped .enemy-emoji{ animation:none; }
   #p-zap.active {
     display: grid;
     grid-template-columns: 452px 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     grid-template-areas:
       "arena title"
+      "arena bulk"
       "arena list";
     padding: 0; overflow: hidden;
   }
@@ -731,11 +732,15 @@ body.noanim .enemy-btn.zapped .enemy-emoji{ animation:none; }
   }
   #p-zap .sectitle { grid-area: title; margin: 16px 22px 4px; }
   /* The big enemy button stays visible on tablet, so the phone collapse rig is
-     dormant: no sentinel, the compact bar stays hidden, and the (bulk-less) zap
-     toolbar is removed entirely so it can't claim a grid row. Mirrors #p-plug. */
+     dormant: no sentinel, and the compact tap bar stays hidden. The zap toolbar
+     still holds the bulk bar (x1/x5/x10/MAX), so it gets its own grid row and
+     static styling like #p-plug rather than being removed. */
   #p-zap .plug-sentinel { display: none; }
   #p-zap.active .plug-taptab { display: none; }
-  #p-zap .plug-toolbar { display: none; }
+  #p-zap .plug-toolbar {
+    grid-area: bulk; position: static; background: none;
+    padding: 0 22px 4px; z-index: auto;
+  }
   #weaponlist {
     grid-area: list; padding: 0 22px 18px;
     display: grid; grid-template-columns: 1fr 1fr; gap: 9px;
