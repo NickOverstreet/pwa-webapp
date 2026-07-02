@@ -141,11 +141,11 @@ check('combat: boss achievement', !!S().achievements.boss1);
 check('synergy: bossWattsMult > 1', T.bossWattsMult() > 1);
 check('combat: wave advanced past 10', S().slayer.wave >= 11);
 
-// balance: volt income must stay FLAT across waves (no compounding decay). Base 1.3
-// sets reward/HP at ~0.13× per ZPS — the deliberate ~5× World-2 slowdown vs the old
-// 0.8 (base 8); ZPS-scaling zaps + the Auto-Zapper are what keep active play worth it.
+// balance: volt income must stay FLAT across waves (no compounding decay). Base 2.6
+// sets reward/HP at ~0.26× per ZPS — ~2.5× slower than the original 0.8 (base 8);
+// rewards were doubled from base 1.3 because progression felt too slow.
 const voltRatio = (w) => T.voltReward(w) / T.enemyHp(w);
-check('balance: volt reward/HP ratio ~0.13 (5x slower than the old 0.8)', Math.abs(voltRatio(3) - 0.13) < 1e-9);
+check('balance: volt reward/HP ratio ~0.26 (rewards doubled from 0.13)', Math.abs(voltRatio(3) - 0.26) < 1e-9);
 check('balance: volt income ratio flat across waves (no decay)', Math.abs(voltRatio(3) - voltRatio(53)) < 1e-6);
 
 // weapon purchase

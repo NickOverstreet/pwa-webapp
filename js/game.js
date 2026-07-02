@@ -1036,7 +1036,7 @@
     enemyBtnMini: $('#enemyBtnMini'), tapvalEnemyMini: $('#tapvalEnemyMini'),
     zapMini: $('#zapMini'), tapvalZapMini: $('#tapvalZapMini'),
     buffBar: $('#buffBar'), floaters: $('#floaters'), surgeLayer: $('#surgeLayer'),
-    dotUp: $('#dotUp'), dotMore: $('#dotMore'), dotArsenal: $('#dotArsenal'),
+    dotUp: $('#dotUp'), dotMore: $('#dotMore'), dotArsenal: $('#dotArsenal'), dotSurge: $('#dotSurge'),
     cordlist: $('#cordlist'), uplist: $('#uplist'), goallist: $('#goallist'), goalcount: $('#goalcount'),
     corelist: $('#corelist'), stormlist: $('#stormlist'), surgelist: $('#surgelist'), surgechargecount: $('#surgechargecount'), surgePresets: $('#surgePresets'),
     statTotal: $('#statTotal'), statClicks: $('#statClicks'), statWps: $('#statWps'),
@@ -1053,7 +1053,7 @@
     storageStatus: $('#storageStatus'), version: $('#version'),
     // Voltlands
     worldBtn: $('#worldBtn'), wattsUnit: $('#wattsUnit'), wpsUnit: $('#wpsUnit'), tapUnit: $('#tapUnit'),
-    enemyBtn: $('#enemyBtn'), enemyEmoji: $('#enemyEmoji'), enemyName: $('#enemyName'), dischargeBtn: $('#dischargeBtn'),
+    enemyBtn: $('#enemyBtn'), enemyEmoji: $('#enemyEmoji'), enemyName: $('#enemyName'), enemyReward: $('#enemyReward'), dischargeBtn: $('#dischargeBtn'),
     zoneName: $('#zoneName'), hpFill: $('#hpFill'), hpText: $('#hpText'), zapinfo: $('#zapinfo'),
     weaponlist: $('#weaponlist'), zuplist: $('#zuplist'), bulkBarZap: $('#bulkBarZap'),
   };
@@ -1978,6 +1978,11 @@
       el.dotArsenal.hidden = !state.wormhole || !ZAP_UPGRADES.some((u) =>
         !s.upgrades[u.id] && zapUpgradeUnlocked(u) && s.volts >= u.cost);
     }
+    if (el.dotSurge) {
+      const s = sl();
+      el.dotSurge.hidden = !state.wormhole || !SURGE_NODES.some((n) =>
+        !sg(n.id) && surgeNodeUnlocked(n) && (s.surgeCharges || 0) >= n.cost);
+    }
   }
 
   /* ---------- Affordability refresh (cheap, runs each tick) ---------- */
@@ -2388,12 +2393,12 @@
     const boss = isBossWave(wave);
     const slayerBonus = boss && chDone('suddendeath') ? 2 : 1;     // GIANT SLAYER perk
     // Reward tracks enemy HP growth (both 1.22^wave) so volt income per ZPS is
-    // FLAT across waves instead of decaying. Base 1.3 (vs HP base 10) sets a
-    // normal wave's volts/sec at ~0.13× the same-production grid watts/sec —
-    // ~5× slower than the old base of 8 (the deliberate World-2 slowdown). Cost
-    // growth was too weak a lever to carry it; income is the clean, uniform dial.
-    // The full-share Auto-Zapper's +25% ZPS nets this back to ~5× once it's owned.
-    return 1.3 * Math.pow(1.22, wave - 1) * (boss ? 12 : 1) * slayerBonus * surgeVoltMult();
+    // FLAT across waves instead of decaying. Base 2.6 (vs HP base 10) sets a
+    // normal wave's volts/sec at ~0.26× the same-production grid watts/sec — the
+    // base-1.3 (~5× slower) tuning felt too slow, so rewards were doubled to 2.6
+    // (~2.5× slower than the original base of 8). Income is the pacing dial (cost
+    // growth is too weak); the full-share Auto-Zapper's +25% ZPS aids active play.
+    return 2.6 * Math.pow(1.22, wave - 1) * (boss ? 12 : 1) * slayerBonus * surgeVoltMult();
   }
 
   // ---- cross-world synergy ----
@@ -2906,6 +2911,7 @@
     const boss = isBossWave(s.wave);
     el.enemyEmoji.textContent = e.icon;
     el.enemyName.textContent = (boss ? '👑 BOSS: ' : '') + e.name;
+    if (el.enemyReward) el.enemyReward.textContent = `Reward: ${fmt(voltReward(s.wave))} Volts`;
     el.zoneName.textContent = `${zoneFor(s.wave)} · WAVE ${s.wave}${boss ? '' : ` · ${s.killsThisWave}/10`}`;
     const pct = s.maxHp > 0 ? Math.max(0, (s.hp / s.maxHp) * 100) : 0;
     el.hpFill.style.width = pct + '%';

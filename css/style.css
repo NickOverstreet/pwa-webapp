@@ -581,6 +581,7 @@ body.noanim .enemy-btn.zapped .enemy-emoji{ animation:none; }
   font-family:var(--pixel); font-size:10px; color:var(--amber); margin-top:10px;
   letter-spacing:1px; text-shadow:0 0 6px rgba(255,194,77,.4);
 }
+.enemy-reward{ font-family:var(--term); font-size:13px; color:var(--dim); margin-top:3px; }
 .hpbar{
   width:78%; max-width:340px; height:14px; margin-top:8px;
   background:#0a0f18; border:1px solid var(--line2); border-radius:999px; overflow:hidden;
