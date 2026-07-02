@@ -1231,10 +1231,23 @@
     const chainExtraMs = Math.min((surgeChain - 1) * 2000, 10000);   // buffs last longer
     const roll = Math.random();
     if (roll < 0.5) {
-      const bonus = Math.max(totalWps() * 90, clickPower() * 60, 50) * surgeRewardMult() * chainMult;
-      gainWatts(bonus);
-      spawnFloater(bonus);
-      toast('⚡ OVERLOAD! +' + fmt(bonus) + ' W', true);
+      // OVERLOAD: an instant currency payout. Route it to the world the player is
+      // actually in — volts in the Voltlands, watts on the Grid — so catching a
+      // surge in World 2 rewards World 2 instead of the idle Grid. (The FRENZY /
+      // CLICK outcomes below are global buffs and already lift the active world.)
+      if (activeWorld() === 'volt') {
+        const w = sl().wave;
+        const ratio = voltReward(w) / enemyHp(w);        // volts per point of damage
+        const bonus = Math.max(totalZps() * ratio * 90, zapPower() * ratio * 60, 50) * surgeRewardMult() * chainMult;
+        sl().volts += bonus; sl().totalVolts += bonus; sl().runVolts += bonus;
+        spawnFloater(bonus);
+        toast('⚡ OVERLOAD! +' + fmt(bonus) + ' V', true);
+      } else {
+        const bonus = Math.max(totalWps() * 90, clickPower() * 60, 50) * surgeRewardMult() * chainMult;
+        gainWatts(bonus);
+        spawnFloater(bonus);
+        toast('⚡ OVERLOAD! +' + fmt(bonus) + ' W', true);
+      }
     } else if (roll < 0.75) {
       buffs.push({ kind: 'prod', mult: 7, until: now + 15000 + chainExtraMs, icon: '🔥', label: 'FRENZY ×7' });
       toast('🔥 PRODUCTION FRENZY ×7!', true);
