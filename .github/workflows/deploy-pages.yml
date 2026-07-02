@@ -51,9 +51,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          # Pages deployment processing has been slow (2026-07: successful deploys
-          # crept from ~20s to ~8m, then started aborting at the action's default
-          # 10-minute timeout while still "deployment_queued"). Give the queue
-          # 30 minutes before giving up.
-          timeout: 1800000
+        # NOTE (2026-07): the action clamps its `timeout` input to a hard maximum
+        # of 10 minutes (MAX_TIMEOUT = 600000), matching the Pages platform limit,
+        # so a larger value is silently ignored — don't bother raising it. Also:
+        # a deployment's ID is the commit SHA, so re-deploying a SHA whose
+        # deployment was cancelled fails instantly with "Deployment cancelled" —
+        # retry by pushing a new commit, not by re-running the same one.
