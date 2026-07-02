@@ -456,7 +456,7 @@
     { id: 'weap5',    icon: '🔫', name: 'Armed to the Teeth', desc: 'Own 5 different weapons.',             cond: () => WEAPONS.filter(w => (state.slayer?.weapons[w.id] || 0) >= 1).length >= 5, prog: () => [WEAPONS.filter(w => (state.slayer?.weapons[w.id] || 0) >= 1).length, 5] },
     { id: 'weapAll',  icon: '🏛️', name: 'Full Arsenal',    desc: `Own all ${WEAPONS.length} weapons.`,      cond: () => WEAPONS.every(w => (state.slayer?.weapons[w.id] || 0) >= 1), prog: () => [WEAPONS.filter(w => (state.slayer?.weapons[w.id] || 0) >= 1).length, WEAPONS.length] },
     { id: 'volt1m',   icon: '🔋', name: 'Million Volt Smile', desc: 'Earn 1 million total volts.',          cond: () => (state.slayer?.totalVolts || 0) >= 1e6, prog: () => [state.slayer?.totalVolts || 0, 1e6] },
-    { id: 'reinc1',   icon: '⚡', name: 'Storm Reborn',      desc: 'Reincarnate for your first Storm Shard.', cond: () => (state.slayer?.shardsEarned || 0) >= 1 },
+    { id: 'reinc1',   icon: '💠', name: 'Storm Reborn',      desc: 'Reincarnate for your first Storm Shard.', cond: () => (state.slayer?.shardsEarned || 0) >= 1 },
     { id: 'shard10',  icon: '🌩️', name: 'Shard Collector',   desc: 'Earn 10 Storm Shards.',                   cond: () => (state.slayer?.shardsEarned || 0) >= 10, prog: () => [state.slayer?.shardsEarned || 0, 10] },
     { id: 'voltchal', icon: '🧪', name: 'Storm Scientist',   desc: 'Complete every Voltlands challenge.',      cond: () => CHALLENGES.filter((c) => c.world === 'volt' && (state.challengesDone || {})[c.id]).length >= CHALLENGES.filter((c) => c.world === 'volt').length, prog: () => [CHALLENGES.filter((c) => c.world === 'volt' && (state.challengesDone || {})[c.id]).length, CHALLENGES.filter((c) => c.world === 'volt').length] },
     { id: 'surgenode1', icon: '🧬', name: 'Researcher',    desc: 'Buy your first Surge Grid node.',       cond: () => Object.keys((state.slayer && state.slayer.surgeNodes) || {}).length >= 1 },
@@ -1512,7 +1512,7 @@
     sl().shardUpgrades[su_.id] = true;
     blip(700, 0.16, 'sawtooth', 0.05);
     buzz([0, 20, 40, 20]);
-    toast('⚡ ' + su_.name + '!', true);
+    toast('💠 ' + su_.name + '!', true);
     checkAchievements();
     renderStormShop();
     syncSettingsUI();    // reveal the Auto-* toggle if just bought
@@ -1794,7 +1794,7 @@
         <button class="upg core ${cls}" data-storm="${su_.id}">
           <div class="un">${su_.icon} ${su_.name}</div>
           <div class="ud">${su_.desc}</div>
-          <div class="uc">${bought ? '✓ OWNED' : '⚡ ' + fmt(su_.cost)}</div>
+          <div class="uc">${bought ? '✓ OWNED' : '💠 ' + fmt(su_.cost)}</div>
         </button>`;
     }
     el.stormlist.innerHTML = html;
@@ -2150,7 +2150,7 @@
     if (gain <= 0) { toast('Slay more before reincarnating'); return; }
     const newPct = Math.round((shardMultFor((sl().shardsEarned || 0) + gain) - 1) * 100);
     showModal(`
-      <h2 class="danger">⚡ REINCARNATE?</h2>
+      <h2 class="danger">💠 REINCARNATE?</h2>
       <p class="dim">Reset volts, weapons &amp; zap upgrades.<br>Shards, storm upgrades &amp; kills are kept.${(state.challenges && state.challenges.volt) ? '<br><b>Abandons the active challenge!</b>' : ''}</p>
       <p class="big">+${fmt(gain)} 💠 Shards</p>
       <p>New bonus: <b style="color:var(--green)">+${newPct}%</b></p>
