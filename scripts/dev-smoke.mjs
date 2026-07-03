@@ -1031,6 +1031,10 @@ check('brownout no longer unlocks auto-buyer', S().owned.usba === usbaBefore);
 check('fps: defaults to 30', T.normalizeState({}).settings.fps === 30);
 check('fps: clamps an invalid value to 30', T.normalizeState({ settings: { fps: 999 } }).settings.fps === 30);
 check('fps: keeps a valid 60', T.normalizeState({ settings: { fps: 60 } }).settings.fps === 60);
+// Background music setting: defaults on, backfills old saves, respects a saved off.
+check('music: defaults to on', T.normalizeState({}).settings.music === true);
+check('music: backfills old saves (settings present, no music key)', T.normalizeState({ settings: { sound: false } }).settings.music === true);
+check('music: respects a saved off', T.normalizeState({ settings: { music: false } }).settings.music === false);
 
 // Surge Grid — Phase 1: state + currency mint + pacing constant
 {

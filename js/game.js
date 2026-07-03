@@ -483,7 +483,7 @@
     surgesCollected: 0,  // lifetime power surges caught
     startedAt: Date.now(),
     lastSeen: Date.now(),
-    settings: { sound: true, floats: true, sci: false, haptics: true, fps: 30, world: { grid: { autobuyOn: true, autoupgOn: true }, volt: { autobuyOn: true, autoupgOn: true, autoclickOn: true } } },
+    settings: { sound: true, music: true, floats: true, sci: false, haptics: true, fps: 30, world: { grid: { autobuyOn: true, autoupgOn: true }, volt: { autobuyOn: true, autoupgOn: true, autoclickOn: true } } },
     bulk: 1,             // 1, 5, 10, or 'max'
     prestigeV: 2,        // prestige-curve schema (v2 = cbrt gain + softcap)
     challenges: { grid: '', volt: '' },  // active challenge id per world (cleared by completion/abandon/prestige)
@@ -551,7 +551,7 @@
     // Device prefs stay top-level/global. Automation toggles are per-world; merge
     // the nested `world` object so partial saves don't drop the volt subtree.
     const savedSettings = s.settings || {};
-    s.settings = Object.assign({ sound: true, floats: true, sci: false, haptics: true, notify: false, fps: 30 }, savedSettings);
+    s.settings = Object.assign({ sound: true, music: true, floats: true, sci: false, haptics: true, notify: false, fps: 30 }, savedSettings);
     if (![15, 30, 60].includes(s.settings.fps)) s.settings.fps = 30;   // render frame-rate cap
     s.settings.world = {
       grid: Object.assign({ autobuyOn: true, autoupgOn: true }, (savedSettings.world && savedSettings.world.grid) || {}),
@@ -1106,6 +1106,98 @@
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.stop(t + dur);
     } catch (e) { /* audio blocked */ }
+  }
+
+  /* ---------- Background music (procedural chiptune loops, one per world) ----------
+     Each world's short loop is synthesized ONCE into an AudioBuffer via an
+     OfflineAudioContext, then played gaplessly with a single looping source — no
+     live scheduler, so it's free on the timer/battery. Original composition, so
+     it's royalty-free. Gated by the Music setting; the AudioContext only starts
+     after a user gesture (autoplay policy), and music stops while backgrounded. */
+  function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  // Two 32-step (16th-note) loops: 4 triads × 8 steps, an I–V–vi–IV shape. The lead
+  // arpeggiates chord tones (index into [t0,t1,t2, t0+12]), so it's always consonant.
+  const SONGS = {
+    grid: {  // bright & upbeat — C major (C · G · Am · F)
+      bpm: 138, steps: 32, bassType: 'triangle', bassEvery: 2, kickEvery: 4,
+      leadType: 'square', leadLen: 0.85,
+      chords: [[48, 52, 55], [55, 59, 62], [57, 60, 64], [53, 57, 60]],
+      arp: [0, 2, 1, 3, 2, 1, 2, 3],
+    },
+    volt: {  // dark & tense — A minor (Am · F · G · E-major dominant)
+      bpm: 102, steps: 32, bassType: 'square', bassEvery: 4, kickEvery: 8,
+      leadType: 'sawtooth', leadLen: 1.9,
+      chords: [[45, 48, 52], [41, 45, 48], [43, 47, 50], [40, 44, 47]],
+      arp: [3, null, null, 1, 0, null, 2, null],
+    },
+  };
+  function renderMusicBuffer(world) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) return null;
+    const song = SONGS[world];
+    const spb = 60 / song.bpm / 4;            // seconds per 16th step
+    const sr = 44100;
+    const oac = new OAC(1, Math.ceil(song.steps * spb * sr), sr);
+    const voice = (type, midi, t, len, vol) => {
+      const o = oac.createOscillator(), g = oac.createGain();
+      o.type = type; o.frequency.value = midiHz(midi);
+      o.connect(g); g.connect(oac.destination);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.start(t); o.stop(t + len + 0.02);
+    };
+    for (let i = 0; i < song.steps; i++) {
+      const t = i * spb;
+      const chord = song.chords[Math.floor(i / 8) % song.chords.length];
+      if (i % song.bassEvery === 0) voice(song.bassType, chord[0] - 12, t, spb * song.bassEvery * 0.9, 0.5);
+      if (i % song.kickEvery === 0) voice('sine', 33, t, 0.12, 0.55);   // soft low thump for pulse
+      const a = song.arp[i % 8];
+      if (a != null) voice(song.leadType, (a === 3 ? chord[0] + 12 : chord[a]) + 12, t, spb * song.leadLen, 0.35);
+    }
+    return oac.startRendering();   // Promise<AudioBuffer>
+  }
+  const musicBuffers = {};   // world -> AudioBuffer (rendered once, cached)
+  let musicSource = null, musicGain = null, musicWorld = null;
+  async function ensureMusicBuffer(world) {
+    if (musicBuffers[world]) return musicBuffers[world];
+    const p = renderMusicBuffer(world);
+    if (!p) return null;
+    return (musicBuffers[world] = await p);
+  }
+  function stopMusic() {
+    if (musicSource) { try { musicSource.stop(); } catch (e) { /* already stopped */ } musicSource = null; }
+    musicWorld = null;
+  }
+  async function playMusic(world) {
+    if (!state.settings.music) return;
+    if (musicSource && musicWorld === world) return;   // already looping this world's track
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});   // fire-and-forget: never stall if a gesture is still settling
+      if (!musicGain) { musicGain = audioCtx.createGain(); musicGain.gain.value = 0.11; musicGain.connect(audioCtx.destination); }
+      const buf = await ensureMusicBuffer(world);
+      if (!buf || !state.settings.music) return;   // no support, or toggled off mid-render
+      stopMusic();
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      src.connect(musicGain);
+      src.start();
+      musicSource = src; musicWorld = world;
+    } catch (e) { /* audio unavailable / blocked */ }
+  }
+  // Follow the active world once music is already playing (never auto-starts it).
+  function syncMusicWorld() {
+    if (musicSource && state.settings.music && musicWorld !== activeWorld()) playMusic(activeWorld());
+  }
+  // Browsers only allow audio to start after a user gesture — resume + start on the
+  // first interaction (if Music is on).
+  function unlockAudio() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* ignore */ }
+    if (state.settings.music) playMusic(activeWorld());
   }
 
   /* ---------- Haptics ----------
@@ -1925,6 +2017,7 @@
     const dot = k.indexOf('.');
     if (dot > 0) return state.settings.world[k.slice(0, dot)][k.slice(dot + 1)];
     return k === 'sound' ? state.settings.sound
+         : k === 'music' ? state.settings.music
          : k === 'haptic' ? state.settings.haptics
          : k === 'anim' ? state.settings.floats
          : k === 'notify' ? state.settings.notify
@@ -2968,6 +3061,7 @@
     renderMoreGating();
     syncSettingsUI();
     renderStatsLite();
+    syncMusicWorld();   // swap to this world's soundtrack if music is already playing
   }
 
   function switchWorld() {
@@ -3499,6 +3593,7 @@
       const dot = k.indexOf('.');
       if (dot > 0) { const a = k.slice(0, dot), p = k.slice(dot + 1); state.settings.world[a][p] = !state.settings.world[a][p]; }
       else if (k === 'sound') state.settings.sound = !state.settings.sound;
+      else if (k === 'music') { state.settings.music = !state.settings.music; if (state.settings.music) playMusic(activeWorld()); else stopMusic(); }
       else if (k === 'haptic') { state.settings.haptics = !state.settings.haptics; if (state.settings.haptics) buzz(20); }
       else if (k === 'anim') state.settings.floats = !state.settings.floats;
       else if (k === 'notify') { toggleNotify(); return; }   // async permission flow handles sync + save
@@ -3536,9 +3631,12 @@
 
   // save on hide / unload
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { save(); pauseLoop(); }   // stop repainting + slow the sim when hidden
-    else resumeLoop();
+    if (document.hidden) { save(); pauseLoop(); stopMusic(); }   // stop repainting, slow the sim, silence music when hidden
+    else { resumeLoop(); if (state.settings.music && audioCtx) playMusic(activeWorld()); }
   });
+  // Autoplay policy: audio can only start after a user gesture — resume + start
+  // music (if on) on the first interaction.
+  ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, unlockAudio, { once: true }));
   window.addEventListener('pagehide', save);
   window.addEventListener('beforeunload', save);
 
@@ -3890,8 +3988,8 @@
     try {
       // Offline-cap reminder: schedule on background, cancel when the app returns.
       App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) { cancelOfflineNotif(); resumeLoop(); }
-        else { scheduleOfflineNotif(); pauseLoop(); }
+        if (isActive) { cancelOfflineNotif(); resumeLoop(); if (state.settings.music && audioCtx) playMusic(activeWorld()); }
+        else { scheduleOfflineNotif(); pauseLoop(); stopMusic(); }
       });
     } catch (e) { /* ignore */ }
   }
