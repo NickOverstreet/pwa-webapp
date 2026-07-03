@@ -48,10 +48,10 @@ generalized so the next app is faster. Where you see a value like
 Two workflows, both triggered on `v*.*.*` tags:
 
 - **`android-release`** (Linux): `npm ci` → `build:www` → `cap sync android` →
-  `gradlew bundleRelease` → publish AAB to Play **internal** track as a draft.
-- **`ios-release`** (macOS): `npm ci` → strip AdMob →
+  `gradlew bundleRelease` → publish AAB to Play **internal** track.
+- **`ios-release`** (macOS): `npm ci` → `build:www` →
   `cap add ios --packagemanager cocoapods` → generate icons → patch Info.plist →
-  `cap sync ios` → create signing files → `pod install` → build IPA → publish to
+  `cap sync ios` → `pod install` → create signing files → build IPA → publish to
   TestFlight.
 
 Key fields to keep correct:
@@ -325,13 +325,17 @@ step, which is what made this a slog — fix them all up front.
 1. Build `ios-release` (tag or branch `main`) → uploads to **TestFlight**
    (~5–15 min Apple processing before it's testable).
 2. In ASC, create the **6 IAP products** (reuse the Android product IDs) + a
-   **sandbox tester**; fill **App Privacy** ("Data Not Collected"), **age rating**
-   (4+), **screenshots** (6.9″), and the **listing** copy.
+   **sandbox tester**; fill **App Privacy** (declare **AdMob data collection +
+   Tracking** — the app is no longer "Data Not Collected"), **age rating** (4+),
+   **screenshots** (6.9″), and the **listing** copy.
 3. Sandbox-test IAP on a real device via TestFlight.
 4. Add **App Review notes** → submit. Full detail: `store/app-store-connect-checklist.md`.
 
-Notes: macOS build minutes are **paid** (no free iOS CI). AdMob is deliberately
-excluded from iOS at launch (IAP-only); the workflow strips it before `cap add`.
+Notes: macOS build minutes are **paid** (no free iOS CI). **iOS ships rewarded
+ads now** (AdMob), same as Android — `scripts/patch-ios-plist.sh` stamps the
+required `GADApplicationIdentifier`, ATT `NSUserTrackingUsageDescription`, and
+`SKAdNetworkItems`, and the workflow verifies the AdMob pod is present. (Still on
+TEST ad units — swap real IDs before launch.)
 
 ---
 
