@@ -1115,17 +1115,29 @@
      it's royalty-free. Gated by the Music setting; the AudioContext only starts
      after a user gesture (autoplay policy), and music stops while backgrounded. */
   function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-  // Two 32-step (16th-note) loops: 4 triads × 8 steps, an I–V–vi–IV shape. The lead
-  // arpeggiates chord tones (index into [t0,t1,t2, t0+12]), so it's always consonant.
+  // Each loop is `chords.length × stepsPerChord` 16th-note steps; the lead arpeggiates
+  // chord tones (index into [t0,t1,t2, t0+12]) so it's always consonant. Fields past
+  // the core four are optional and default to the volt values, so volt renders
+  // unchanged — only grid opts into the pad layer / slow tempo / longer progression.
   const SONGS = {
-    grid: {  // bright & upbeat — C major (C · G · Am · F)
-      bpm: 138, steps: 32, bassType: 'triangle', bassEvery: 2, kickEvery: 4,
-      leadType: 'square', leadLen: 0.85,
-      chords: [[48, 52, 55], [55, 59, 62], [57, 60, 64], [53, 57, 60]],
-      arp: [0, 2, 1, 3, 2, 1, 2, 3],
+    // Chill synthwave dream-pad — C major, 48 BPM, 8 chords (vi–IV–I–V ×2 varied) →
+    // a slow, spacious 20.0s loop. A detuned sawtooth pad swells and fades under each
+    // chord (the warm "supersaw" bed); soft held triangle bass, a gentle heartbeat
+    // pulse, and a sparse triangle melody with lots of air.
+    grid: {
+      bpm: 48, stepsPerChord: 8,
+      bassType: 'triangle', bassEvery: 8, bassVol: 0.44,
+      kickEvery: 4, kickVol: 0.32,
+      pad: [0, 1, 2], padType: 'sawtooth', padVol: 0.1, detune: 9,
+      leadType: 'triangle', leadLen: 1.4, leadVol: 0.29,
+      chords: [
+        [57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62],   // Am · F · C · G
+        [57, 60, 64], [53, 57, 60], [50, 53, 57], [55, 59, 62],    // Am · F · Dm · G
+      ],
+      arp: [0, null, 2, null, null, 1, null, null, 2, null, 1, null, null, 0, null, null],
     },
     volt: {  // dark & tense — A minor (Am · F · G · E-major dominant)
-      bpm: 102, steps: 32, bassType: 'square', bassEvery: 4, kickEvery: 8,
+      bpm: 102, stepsPerChord: 8, bassType: 'square', bassEvery: 4, kickEvery: 8,
       leadType: 'sawtooth', leadLen: 1.9,
       chords: [[45, 48, 52], [41, 45, 48], [43, 47, 50], [40, 44, 47]],
       arp: [3, null, null, 1, 0, null, 2, null],
@@ -1136,8 +1148,10 @@
     if (!OAC) return null;
     const song = SONGS[world];
     const spb = 60 / song.bpm / 4;            // seconds per 16th step
+    const spc = song.stepsPerChord || 8;      // steps each chord is held
+    const steps = song.chords.length * spc;   // whole progression = one loop
     const sr = 44100;
-    const oac = new OAC(1, Math.ceil(song.steps * spb * sr), sr);
+    const oac = new OAC(1, Math.ceil(steps * spb * sr), sr);
     const voice = (type, midi, t, len, vol) => {
       const o = oac.createOscillator(), g = oac.createGain();
       o.type = type; o.frequency.value = midiHz(midi);
@@ -1147,13 +1161,30 @@
       g.gain.exponentialRampToValueAtTime(0.0001, t + len);
       o.start(t); o.stop(t + len + 0.02);
     };
-    for (let i = 0; i < song.steps; i++) {
+    // Sustained, detuned pad voice: a slow swell up then a fade back down across the
+    // whole chord, doubled ±detune cents for a warm analog width. (grid only)
+    const pad = (type, midi, t, len, vol, cents) => {
+      [-cents, cents].forEach((dc) => {
+        const o = oac.createOscillator(), g = oac.createGain();
+        o.type = type; o.frequency.value = midiHz(midi);
+        if (o.detune) o.detune.value = dc;
+        o.connect(g); g.connect(oac.destination);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.5, len * 0.3));   // slow swell
+        g.gain.exponentialRampToValueAtTime(0.0001, t + len);                     // fade into next chord
+        o.start(t); o.stop(t + len + 0.02);
+      });
+    };
+    for (let i = 0; i < steps; i++) {
       const t = i * spb;
-      const chord = song.chords[Math.floor(i / 8) % song.chords.length];
-      if (i % song.bassEvery === 0) voice(song.bassType, chord[0] - 12, t, spb * song.bassEvery * 0.9, 0.5);
-      if (i % song.kickEvery === 0) voice('sine', 33, t, 0.12, 0.55);   // soft low thump for pulse
-      const a = song.arp[i % 8];
-      if (a != null) voice(song.leadType, (a === 3 ? chord[0] + 12 : chord[a]) + 12, t, spb * song.leadLen, 0.35);
+      const chord = song.chords[Math.floor(i / spc) % song.chords.length];
+      if (i % song.bassEvery === 0) voice(song.bassType, chord[0] - 12, t, spb * song.bassEvery * 0.9, song.bassVol || 0.5);
+      if (i % song.kickEvery === 0) voice('sine', 33, t, 0.12, song.kickVol || 0.55);   // soft low thump for pulse
+      if (song.pad && i % spc === 0) {
+        for (const idx of song.pad) pad(song.padType, chord[idx], t, spc * spb, song.padVol || 0.09, song.detune || 8);
+      }
+      const a = song.arp[i % song.arp.length];
+      if (a != null) voice(song.leadType, (a === 3 ? chord[0] + 12 : chord[a]) + 12, t, spb * song.leadLen, song.leadVol || 0.35);
     }
     return oac.startRendering();   // Promise<AudioBuffer>
   }
