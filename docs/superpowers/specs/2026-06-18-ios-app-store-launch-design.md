@@ -22,7 +22,7 @@ submission carries no IDFA / App Tracking Transparency / ad-privacy surface.
 - Monetization bridge `js/monetize.js`: rewarded ads via `@capacitor-community/admob`,
   IAP via `cordova-plugin-purchase`, all gated behind `Capacitor.isNativePlatform()`.
   **IAP code currently hardcodes `Platform.GOOGLE_PLAY` in five places.**
-- Repo is **public** on GitHub (`NickOverstreet/pwa-webapp`); Pages deploys via Actions.
+- Repo is **public** on GitHub (`NickOverstreet/PlugIdle`); Pages deploys via Actions.
 - Six IAP products defined in `store/play-console-checklist.md`:
   `supporter_pack`, `boost_production_25`, `starter_cores` (non-consumable),
   `timewarp_4h`, `timewarp_24h` (consumable), `theme_pack_phosphor` (non-consumable).
