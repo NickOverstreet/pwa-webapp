@@ -724,6 +724,13 @@
   // 5e7 puts the first shard at the same play-time as the first core (slightly slower).
   const STORM_THRESHOLD = 5e7;
   const STORM_SOFTCAP = 10;
+  // Shard-gain diminishing returns: each lifetime shard raises the runVolts needed
+  // for the next by 1/SHARD_DR, so the shard -> ZPS -> runVolts -> shard loop can't
+  // run away in the late game. Grid cores get this free via their lifetime
+  // subtraction; shards never had it, so late-game (super-linear runVolts vs shard
+  // mult) compounded exponentially. The factor is ~1 early (early game untouched)
+  // and grows with shardsEarned: ~13% fewer shards at 5, ~21% at 10, ~55% at 100.
+  const SHARD_DR = 10;
   function shardMultFor(shardsN) {
     const raw = 1 + shardPer() * shardsN;
     if (raw <= STORM_SOFTCAP) return raw;
@@ -920,7 +927,8 @@
   // earned THIS run (×Storm Chaser/Fission bonus). Unlike grid cores, shards are
   // pure gain per run — there is no lifetime subtraction.
   function reincarnateGain() {
-    return Math.max(0, Math.floor(Math.cbrt(((state.slayer && state.slayer.runVolts) || 0) / STORM_THRESHOLD) * shardGainMult() * surgeShardMult()));
+    const dr = 1 + (((state.slayer && state.slayer.shardsEarned) || 0) / SHARD_DR);   // late-game diminishing brake
+    return Math.max(0, Math.floor(Math.cbrt(((state.slayer && state.slayer.runVolts) || 0) / (STORM_THRESHOLD * dr)) * shardGainMult() * surgeShardMult()));
   }
 
   /* ---------- Number formatting ---------- */
