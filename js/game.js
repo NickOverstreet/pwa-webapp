@@ -716,7 +716,7 @@
   // Voltlands prestige (Storm Reactor): lifetime Storm Shards drive a permanent,
   // softcapped ZPS multiplier — the volt analog of prestigeMult. Same softcap
   // shape as the Grid (linear to ×10, then sqrt-dampened).
-  // STORM_THRESHOLD gates the first shard: reincarnateGain = cbrt(runVolts/THRESHOLD).
+  // STORM_THRESHOLD gates the first shard: shards deserved = cbrt(runVolts/THRESHOLD).
   // Tuned to match the Grid's first prestige core: under symmetric active-play
   // modeling the first core lands at ~1h54m, by which point a Voltlands run has
   // banked ~4.6e7 runVolts (~wave 60). Earlier values arrived far too early vs cores
@@ -724,13 +724,6 @@
   // 5e7 puts the first shard at the same play-time as the first core (slightly slower).
   const STORM_THRESHOLD = 5e7;
   const STORM_SOFTCAP = 10;
-  // Shard-gain diminishing returns: each lifetime shard raises the runVolts needed
-  // for the next by 1/SHARD_DR, so the shard -> ZPS -> runVolts -> shard loop can't
-  // run away in the late game. Grid cores get this free via their lifetime
-  // subtraction; shards never had it, so late-game (super-linear runVolts vs shard
-  // mult) compounded exponentially. The factor is ~1 early (early game untouched)
-  // and grows with shardsEarned: ~13% fewer shards at 5, ~21% at 10, ~55% at 100.
-  const SHARD_DR = 10;
   function shardMultFor(shardsN) {
     const raw = 1 + shardPer() * shardsN;
     if (raw <= STORM_SOFTCAP) return raw;
@@ -923,12 +916,15 @@
     return Math.max(0, potential - (state.coresEarned || 0));
   }
 
-  // Storm Shards "deserved" this reincarnation: a cube-root curve over the volts
-  // earned THIS run (×Storm Chaser/Fission bonus). Unlike grid cores, shards are
-  // pure gain per run — there is no lifetime subtraction.
+  // Storm Shards mirror grid cores: a cube-root "deserved" curve over THIS run's
+  // volts, and you collect only the difference above what you've already earned. So
+  // reincarnating without beating your prior best run yields nothing — shards don't
+  // re-accumulate until runVolts passes the point that set shardsEarned — and the
+  // cbrt gives natural late-game diminishing (this supersedes the old SHARD_DR
+  // brake, which would double-nerf once combined with the subtraction).
   function reincarnateGain() {
-    const dr = 1 + (((state.slayer && state.slayer.shardsEarned) || 0) / SHARD_DR);   // late-game diminishing brake
-    return Math.max(0, Math.floor(Math.cbrt(((state.slayer && state.slayer.runVolts) || 0) / (STORM_THRESHOLD * dr)) * shardGainMult() * surgeShardMult()));
+    const deserved = Math.floor(Math.cbrt(((state.slayer && state.slayer.runVolts) || 0) / STORM_THRESHOLD) * shardGainMult() * surgeShardMult());
+    return Math.max(0, deserved - ((state.slayer && state.slayer.shardsEarned) || 0));
   }
 
   /* ---------- Number formatting ---------- */
@@ -2126,7 +2122,11 @@
       const owned = state.owned[c.id] || 0;
       const prevOwned = i === 0 ? 1 : (state.owned[CORDS[i - 1].id] || 0);
       const visible = owned > 0 || prevOwned > 0;
-      sig += (visible ? (state.watts >= cordCost(c, buyCount(c)) ? '1' : '0') : '-');
+      // Include buyCount so MAX (whose affordable qty grows as watts do) keeps the
+      // displayed price + affordability fresh — the affordability bool alone stays
+      // '1' as maxAffordable climbs, which froze the shown price at a stale value.
+      const bc = buyCount(c);
+      sig += (visible ? (bc + (state.watts >= cordCost(c, bc) ? '1' : '0')) : '-');
     }
     sig += '|';
     for (const u of UPGRADES) {
@@ -2136,7 +2136,7 @@
     }
     if (state.wormhole) {
       sig += '|' + state.bulk + '|';
-      for (const w of WEAPONS) sig += sl().volts >= weaponCost(w, weaponBuyCount(w)) ? '1' : '0';
+      for (const w of WEAPONS) { const bc = weaponBuyCount(w); sig += bc + (sl().volts >= weaponCost(w, bc) ? '1' : '0'); }
       for (const u of ZAP_UPGRADES) {
         if (sl().upgrades[u.id]) { sig += 'b'; continue; }
         sig += sl().volts >= u.cost ? '1' : '0';

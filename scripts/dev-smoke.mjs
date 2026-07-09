@@ -288,6 +288,22 @@ check('migrate: new save has both challenge slots', (() => { const c = T.normali
   T.sl().wave = waveBefore;
 }
 
+// Stage 2 — high-water-mark: shards don't re-accumulate until runVolts passes the
+// point that set shardsEarned (the volt analog of grid cores' potential - earned).
+{
+  const sR = T.sl();
+  const suSave = sR.shardUpgrades, snSave = sR.surgeNodes, seSave = sR.shardsEarned, rvSave = sR.runVolts;
+  sR.shardUpgrades = {}; sR.surgeNodes = {};                 // no gain bonuses -> deserved = cbrt(runVolts/5e7)
+  const deserved = (v) => Math.floor(Math.cbrt(v / 5e7));
+  sR.shardsEarned = 0; sR.runVolts = 5e10;
+  check('watermark: first run gains the full deserved amount', T.reincarnateGain() === deserved(5e10) && deserved(5e10) === 10);
+  sR.shardsEarned = 10; sR.runVolts = 5e10;
+  check('watermark: re-reaching the same peak gains 0 (no re-accumulation)', T.reincarnateGain() === 0);
+  sR.runVolts = 1e11;
+  check('watermark: beating the peak gains only the delta', T.reincarnateGain() === deserved(1e11) - 10);
+  sR.shardUpgrades = suSave; sR.surgeNodes = snSave; sR.shardsEarned = seSave; sR.runVolts = rvSave;
+}
+
 // Stage 2 — shardMult rises with shardsEarned and respects the softcap
 {
   const sR = T.sl();
@@ -1405,7 +1421,7 @@ check('music: respects a saved off', T.normalizeState({ settings: { music: false
   check('zapmilestone: milestonesPassed = 1 at 100 zaps', T.zapMilestonesPassed() === 1);
   check('zapmilestone: nextZapMilestone = 500', T.nextZapMilestone() === 500);
   // per-run reset parity: reincarnate + resetSlayerRun clear zaps; a grid reset keeps them
-  sR.zaps = 500; sR.runVolts = 1e12;   // ensure reincarnateGain() > 0
+  sR.zaps = 500; sR.runVolts = 1e12; sR.shardsEarned = 0;   // ensure reincarnateGain() > 0 (past the high-water mark)
   T.reincarnate();
   check('zapmilestone: reincarnate resets zaps to 0', T.sl().zaps === 0);
   T.sl().zaps = 500; T.resetSlayerRun();
